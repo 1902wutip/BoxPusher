@@ -63,12 +63,16 @@ def is_valid(game,new_pos):
     )
 
 def click(game, x, y):
-    if game.game_active == False:
+    if game.game_status == "active":
+        game.game_status = "frozen"
+        game.fail_text.write("Failure: Keyboard Stopped!", align="center", font=("Arial", 32, "bold"))
+    elif game.game_status == "frozen":
+        game.game_status = "melting"
         game.levelup(game.level)
 
 def move(game, dx, dy):
 
-    if game.game_active == False:
+    if game.game_status != "active":
         return None
     new_pos = (game.player_pos[0] + dx, game.player_pos[1] + dy)
     if not is_valid(game,new_pos):
@@ -81,35 +85,36 @@ def move(game, dx, dy):
         if is_valid(game,box_new_pos) and box_new_pos not in game.boxes:
             game.boxes = [box_new_pos if i == box_idx else p for i, p in enumerate(game.boxes)]
             game.player_pos = new_pos
+            game.steps += 1
     else:
         game.player_pos = new_pos
+        game.steps += 1
     
     update_graphics(game)
     
     ##  check whether victory
-    if game.game_active == True and all(pos in game.goals for pos in game.boxes):
-        game.game_active = False
+    if game.game_status == "active" and all(pos in game.goals for pos in game.boxes):
+        game.game_status = "frozen"
         game.level += 1
         game.win_text.write("Victory!", align="center", font=("Arial", 32, "bold"))
 
     ##  check whether failed for maximal steps
-    game.steps += 1
     game.stepper.clear()
     game.stepper.write(f"步数: {game.steps} / {game.MOVE_LIMIT}", align="right", font=("Microsoft YaHei", 14, "bold"))
-    if game.game_active == True and game.steps >= game.MOVE_LIMIT:
-        game.game_active = False
+    if game.game_status == "active" and game.steps >= game.MOVE_LIMIT:
+        game.game_status = "frozen"
         game.fail_text.write("Failure: Steps Exhausted!", align="center", font=("Arial", 32, "bold"))
 
 def update_timer(game):
     """update current time every second"""
-    if game.game_active:
+    if game.game_status == "active":
         now = time.time() - game.t0
         game.timer.clear()
         game.timer.write(f"用时: {format_time(now)} / {format_time(game.TIME_LIMIT)}", 
                          align="left", font=("Microsoft YaHei", 14, "bold"))
         ##  check whether failed for time out
-        if game.game_active == True and now >= game.TIME_LIMIT:
-            game.game_active = False
+        if game.game_status == "active" and now >= game.TIME_LIMIT:
+            game.game_status = "frozen"
             game.fail_text.write("Failure: TimeOut!", align="center", font=("Arial", 32, "bold"))
         game.screen.ontimer(lambda: update_timer(game), 1000)  ##  recursive call every second
 
@@ -124,7 +129,7 @@ class Game():
 
         ##  initialization
         self.level = 1
-        self.game_active = False
+        self.game_status = "frozen"
         self.t0 = time.time()
         self.steps = 0
         self.maps = maps
@@ -231,7 +236,7 @@ class Game():
         self.stepper.write(f"步数: 0 / {self.MOVE_LIMIT}",align="right",font=("Microsoft YaHei",14,"bold"))
 
         ##  game activation
-        self.game_active = True
+        self.game_status = "active"
         update_timer(self)
         draw_statics(self)
         update_graphics(self)
